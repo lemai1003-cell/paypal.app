@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Paypal - Luyện Thi Toán Lớp 1</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- TRANG CHỦ -->
+  <div id="page-home" class="page active">
+    <div class="container home-container">
+      <div class="logo">🧮</div>
+      <h1 class="brand">Paypal</h1>
+      <p class="subtitle">Luyện thi Toán Lớp 1 thật vui và dễ dàng!</p>
+      <div class="menu-cards">
+        <div class="card" onclick="showPage('page-practice-setup')">
+          <div class="card-icon">✏️</div>
+          <div class="card-title">Luyện Đề</div>
+          <div class="card-desc">Làm bài với 20, 50 hoặc 100 câu</div>
+        </div>
+        <div class="card" onclick="showPage('page-history')">
+          <div class="card-icon">📋</div>
+          <div class="card-title">Lịch Sử</div>
+          <div class="card-desc">Xem lại các lần làm bài trước</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHỌN SỐ CÂU -->
+  <div id="page-practice-setup" class="page">
+    <div class="container">
+      <button class="btn-back" onclick="showPage('page-home')">← Quay lại</button>
+      <h2>Chọn số câu</h2>
+      <p>Bạn muốn làm bao nhiêu câu hỏi?</p>
+      <div class="choice-grid">
+        <button class="choice-btn" onclick="startPractice(20)">
+          <span class="choice-num">20</span>
+          <span class="choice-label">câu</span>
+        </button>
+        <button class="choice-btn" onclick="startPractice(50)">
+          <span class="choice-num">50</span>
+          <span class="choice-label">câu</span>
+        </button>
+        <button class="choice-btn" onclick="startPractice(100)">
+          <span class="choice-num">100</span>
+          <span class="choice-label">câu</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LÀM BÀI -->
+  <div id="page-quiz" class="page">
+    <div class="container quiz-container">
+      <div class="quiz-header">
+        <button class="btn-back" onclick="confirmExit()">← Thoát</button>
+        <div class="quiz-progress">
+          <span id="q-current">1</span>/<span id="q-total">20</span>
+        </div>
+        <div class="quiz-timer" id="quiz-timer">⏱ 00:00</div>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+      <div class="question-box">
+        <div class="question-text" id="question-text">3 + 4 = ?</div>
+      </div>
+      <div class="choices-grid" id="choices-grid"></div>
+      <div class="quiz-nav">
+        <button class="btn-nav" id="btn-prev" onclick="prevQuestion()">◀ Trước</button>
+        <button class="btn-nav btn-primary" id="btn-next" onclick="nextQuestion()">Tiếp ▶</button>
+        <button class="btn-nav btn-success hidden" id="btn-submit" onclick="submitQuiz()">Nộp bài ✓</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KẾT QUẢ -->
+  <div id="page-result" class="page">
+    <div class="container result-container">
+      <div class="result-emoji" id="result-emoji">🎉</div>
+      <h2 id="result-title">Xuất sắc!</h2>
+      <div class="score-box">
+        <div class="score-main" id="score-main">18/20</div>
+        <div class="score-percent" id="score-percent">90%</div>
+      </div>
+      <div class="result-stats">
+        <div class="stat correct">
+          <span class="stat-num" id="stat-correct">18</span>
+          <span class="stat-label">Đúng ✅</span>
+        </div>
+        <div class="stat wrong">
+          <span class="stat-num" id="stat-wrong">2</span>
+          <span class="stat-label">Sai ❌</span>
+        </div>
+        <div class="stat time">
+          <span class="stat-num" id="stat-time">5:30</span>
+          <span class="stat-label">Thời gian ⏱</span>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="btn btn-primary" onclick="reviewAnswers()">Xem lại đáp án</button>
+        <button class="btn btn-secondary" onclick="showPage('page-practice-setup')">Làm lại</button>
+        <button class="btn btn-outline" onclick="showPage('page-home')">Trang chủ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- XEM LẠI ĐÁP ÁN -->
+  <div id="page-review" class="page">
+    <div class="container">
+      <button class="btn-back" onclick="showPage('page-result')">← Quay lại kết quả</button>
+      <h2>Xem lại đáp án</h2>
+      <div id="review-list"></div>
+    </div>
+  </div>
+
+  <!-- LỊCH SỬ -->
+  <div id="page-history" class="page">
+    <div class="container">
+      <button class="btn-back" onclick="showPage('page-home')">← Quay lại</button>
+      <h2>Lịch Sử Làm Bài</h2>
+      <div id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- MODAL XÁC NHẬN THOÁT -->
+  <div id="modal-exit" class="modal-overlay hidden">
+    <div class="modal">
+      <p>Bạn có chắc muốn thoát? Tiến độ sẽ không được lưu.</p>
+      <div class="modal-actions">
+        <button class="btn btn-danger" onclick="exitQuiz()">Thoát</button>
+        <button class="btn btn-outline" onclick="closeModal()">Tiếp tục làm</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
