@@ -170,12 +170,12 @@ function reviewAnswers() {
   showPage('page-review');
 }
 
-// ===== HISTORY (Firestore) =====
+// ===== HISTORY (Realtime Database) =====
 async function saveHistory(result) {
   try {
-    const { db, addDoc, collection } = window._fb;
+    const { db, ref, push } = window._fb;
     const uid = window._fbUserId;
-    await addDoc(collection(db, 'users', uid, 'history'), {
+    await push(ref(db, `users/${uid}/history`), {
       date: new Date().toISOString(),
       dateDisplay: new Date().toLocaleString('vi-VN'),
       correct: result.correct,
@@ -184,15 +184,8 @@ async function saveHistory(result) {
       time: result.timeStr
     });
   } catch (e) {
-    // Fallback localStorage nếu lỗi
-    const history = getLocalHistory();
-    history.unshift({ date: new Date().toLocaleString('vi-VN'), correct: result.correct, total: result.total, pct: result.pct, time: result.timeStr });
-    localStorage.setItem('paypal_math_history', JSON.stringify(history.slice(0, 50)));
+    console.error('saveHistory error:', e);
   }
-}
-
-function getLocalHistory() {
-  try { return JSON.parse(localStorage.getItem('paypal_math_history') || '[]'); } catch { return []; }
 }
 
 async function renderHistory() {
@@ -200,19 +193,22 @@ async function renderHistory() {
   list.innerHTML = '<div class="history-empty">⏳ Đang tải...</div>';
 
   try {
-    const { db, collection, query, orderBy, limit, getDocs, deleteDoc } = window._fb;
+    const { db, ref, query, orderByChild, limitToLast, get, remove } = window._fb;
     const uid = window._fbUserId;
-    const q = query(collection(db, 'users', uid, 'history'), orderBy('date', 'desc'), limit(50));
-    const snapshot = await getDocs(q);
+    const histRef = ref(db, `users/${uid}/history`);
+    const q = query(histRef, orderByChild('date'), limitToLast(50));
+    const snapshot = await get(q);
 
     list.innerHTML = '';
-    if (snapshot.empty) {
+    if (!snapshot.exists()) {
       list.innerHTML = '<div class="history-empty">📭 Chưa có lịch sử làm bài</div>';
       return;
     }
 
+    // Lấy data và đảo ngược để mới nhất lên đầu
     const docs = [];
-    snapshot.forEach(doc => docs.push({ id: doc.id, ...doc.data() }));
+    snapshot.forEach(child => docs.push({ key: child.key, ...child.val() }));
+    docs.reverse();
 
     docs.forEach(h => {
       const pctClass = h.pct >= 80 ? 'good' : h.pct >= 50 ? 'ok' : 'bad';
@@ -234,17 +230,13 @@ async function renderHistory() {
     clearBtn.textContent = '🗑 Xóa lịch sử';
     clearBtn.onclick = async () => {
       if (!confirm('Xóa toàn bộ lịch sử?')) return;
-      const { db, deleteDoc, doc } = window._fb;
-      const uid = window._fbUserId;
-      for (const h of docs) {
-        await deleteDoc(doc(db, 'users', uid, 'history', h.id));
-      }
+      await remove(ref(db, `users/${uid}/history`));
       renderHistory();
     };
     list.appendChild(clearBtn);
 
   } catch (e) {
-    console.error(e);
+    console.error('renderHistory error:', e);
     list.innerHTML = '<div class="history-empty">❌ Không thể tải lịch sử</div>';
   }
 }
