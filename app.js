@@ -32,7 +32,8 @@ async function fbSave(result) {
       total: result.total,
       pct: result.pct,
       time: result.timeStr,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      detail: result.detail || []
     });
   } catch (e) { console.warn('Firebase save error:', e); }
 }
@@ -136,6 +137,14 @@ window.submitQuiz = function() {
   const pct = Math.round((correct / total) * 100);
   const timeStr = formatTime(elapsedSeconds);
   lastResult = { questions: currentQuestions, answers: userAnswers, correct, total, pct, timeStr };
+
+  // Gắn chi tiết từng câu vào result
+  lastResult.detail = currentQuestions.map((q, i) => ({
+    question: q.question,
+    userAnswer: userAnswers[i],
+    correctAnswer: q.answer,
+    isCorrect: userAnswers[i] === q.answer
+  }));
 
   // Lưu cả local và Firebase
   saveHistoryLocal(lastResult);
