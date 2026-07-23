@@ -137,7 +137,43 @@
     </div>
   </div>
 
-  <script src="questions.js"></script>
-  <script type="module" src="app.js"></script>
+  <!-- Firebase CDN -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, query, orderBy, limit, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBLrCrs9rLEAXbBqzbrmm5l2gIhEOHq5Ww",
+      authDomain: "version2307.firebaseapp.com",
+      projectId: "version2307",
+      storageBucket: "version2307.firebasestorage.app",
+      messagingSenderId: "873038002527",
+      appId: "1:873038002527:web:0b8aeaf3c08d7bbdf1deea"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Tạo hoặc lấy deviceId từ localStorage
+    let deviceId = localStorage.getItem('paypal_device_id');
+    if (!deviceId) {
+      deviceId = 'dev_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      localStorage.setItem('paypal_device_id', deviceId);
+    }
+    window._fbUserId = deviceId;
+
+    // Expose Firebase helpers ra global để app.js dùng
+    window._fb = { db, addDoc, collection, query, orderBy, limit, getDocs, deleteDoc, doc };
+
+    // Load app
+    const s1 = document.createElement('script');
+    s1.src = 'questions.js';
+    s1.onload = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'app.js';
+      document.body.appendChild(s2);
+    };
+    document.body.appendChild(s1);
+  </script>
 </body>
 </html>
