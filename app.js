@@ -171,8 +171,8 @@ function reviewAnswers() {
 }
 
 // ===== HISTORY =====
-function saveHistory(result) {
-  const history = getHistory();
+function saveHistoryLocal(result) {
+  const history = getHistoryLocal();
   history.unshift({
     date: new Date().toLocaleString('vi-VN'),
     correct: result.correct,
@@ -183,15 +183,30 @@ function saveHistory(result) {
   localStorage.setItem('paypal_math_history', JSON.stringify(history.slice(0, 50)));
 }
 
-function getHistory() {
+function getHistoryLocal() {
   try {
     return JSON.parse(localStorage.getItem('paypal_math_history') || '[]');
   } catch { return []; }
 }
 
-function renderHistory() {
+async function saveHistory(result) {
+  saveHistoryLocal(result);
+  if (window.saveHistoryFirebase) {
+    await window.saveHistoryFirebase(result);
+  }
+}
+
+async function renderHistory() {
   const list = document.getElementById('history-list');
-  const history = getHistory();
+  list.innerHTML = '<div class="history-empty">⏳ Đang tải...</div>';
+
+  let history = null;
+  if (window.getHistoryFirebase) {
+    history = await window.getHistoryFirebase();
+  }
+  // Fallback sang localStorage nếu Firebase lỗi
+  if (!history) history = getHistoryLocal();
+
   list.innerHTML = '';
 
   if (history.length === 0) {
@@ -199,13 +214,13 @@ function renderHistory() {
     return;
   }
 
-  history.forEach((h, i) => {
+  history.forEach((h) => {
     const pctClass = h.pct >= 80 ? 'good' : h.pct >= 50 ? 'ok' : 'bad';
     const item = document.createElement('div');
     item.className = 'history-item';
     item.innerHTML = `
       <div class="history-info">
-        <div class="history-date">${h.date}</div>
+        <div class="history-date">${h.dateDisplay || h.date}</div>
         <div class="history-score">${h.correct}/${h.total} câu đúng</div>
         <div class="history-meta">⏱ ${h.time}</div>
       </div>
@@ -217,9 +232,10 @@ function renderHistory() {
   const clearBtn = document.createElement('button');
   clearBtn.className = 'btn-clear-history';
   clearBtn.textContent = '🗑 Xóa lịch sử';
-  clearBtn.onclick = () => {
+  clearBtn.onclick = async () => {
     if (confirm('Xóa toàn bộ lịch sử?')) {
       localStorage.removeItem('paypal_math_history');
+      if (window.clearHistoryFirebase) await window.clearHistoryFirebase();
       renderHistory();
     }
   };
