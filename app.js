@@ -1,3 +1,54 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, push, get, remove }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+// ===== FIREBASE =====
+const firebaseConfig = {
+  apiKey: "AIzaSyBZsWW8sKosivJD8jGIE19cq6NL-zbIa6U",
+  authDomain: "app-eta-6320b.firebaseapp.com",
+  databaseURL: "https://app-eta-6320b-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "app-eta-6320b",
+  storageBucket: "app-eta-6320b.firebasestorage.app",
+  messagingSenderId: "24326511208",
+  appId: "1:24326511208:web:6980d4e17959b08e02f9dd"
+};
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
+
+function getDeviceId() {
+  let id = localStorage.getItem('paypal_device_id');
+  if (!id) {
+    id = 'device_' + Math.random().toString(36).substr(2, 12) + Date.now();
+    localStorage.setItem('paypal_device_id', id);
+  }
+  return id;
+}
+
+async function fbSave(result) {
+  try {
+    await push(ref(db, `history/${getDeviceId()}`), {
+      dateDisplay: new Date().toLocaleString('vi-VN'),
+      correct: result.correct,
+      total: result.total,
+      pct: result.pct,
+      time: result.timeStr,
+      createdAt: Date.now()
+    });
+  } catch (e) { console.warn('Firebase save error:', e); }
+}
+
+async function fbGet() {
+  try {
+    const snap = await get(ref(db, `history/${getDeviceId()}`));
+    if (!snap.exists()) return [];
+    return Object.values(snap.val()).sort((a, b) => b.createdAt - a.createdAt).slice(0, 50);
+  } catch (e) { console.warn('Firebase get error:', e); return null; }
+}
+
+async function fbClear() {
+  try { await remove(ref(db, `history/${getDeviceId()}`)); } catch (e) { console.warn(e); }
+}
+
 // ===== STATE =====
 let currentQuestions = [];
 let userAnswers = [];
@@ -7,33 +58,26 @@ let elapsedSeconds = 0;
 let lastResult = null;
 
 // ===== NAVIGATION =====
-function showPage(id) {
+window.showPage = function(id) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const page = document.getElementById(id);
-  page.classList.add('active');
-
+  document.getElementById(id).classList.add('active');
   if (id === 'page-history') renderHistory();
-}
+};
 
 // ===== QUIZ START =====
-function startPractice(count) {
+window.startPractice = function(count) {
   currentQuestions = getRandomQuestions(count);
   userAnswers = new Array(count).fill(null);
   currentIndex = 0;
   elapsedSeconds = 0;
-
   showPage('page-quiz');
   renderQuestion();
-  startTimer();
-}
-
-function startTimer() {
   clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     elapsedSeconds++;
     document.getElementById('quiz-timer').textContent = '⏱ ' + formatTime(elapsedSeconds);
   }, 1000);
-}
+};
 
 function formatTime(s) {
   const m = Math.floor(s / 60).toString().padStart(2, '0');
@@ -45,40 +89,26 @@ function formatTime(s) {
 function renderQuestion() {
   const q = currentQuestions[currentIndex];
   const total = currentQuestions.length;
-
   document.getElementById('q-current').textContent = currentIndex + 1;
   document.getElementById('q-total').textContent = total;
   document.getElementById('question-text').textContent = q.question;
+  document.getElementById('progress-fill').style.width = ((currentIndex + 1) / total * 100) + '%';
 
-  const fill = ((currentIndex + 1) / total) * 100;
-  document.getElementById('progress-fill').style.width = fill + '%';
-
-  // Choices
   const grid = document.getElementById('choices-grid');
   grid.innerHTML = '';
   q.choices.forEach(choice => {
     const btn = document.createElement('button');
     btn.className = 'choice-item';
     btn.textContent = choice;
-
     if (userAnswers[currentIndex] !== null) {
       btn.classList.add('disabled');
       if (choice === q.answer) btn.classList.add('correct');
       else if (choice === userAnswers[currentIndex]) btn.classList.add('wrong');
-    } else if (userAnswers[currentIndex] === choice) {
-      btn.classList.add('selected');
     }
-
     btn.onclick = () => selectAnswer(choice);
     grid.appendChild(btn);
   });
 
-  // Highlight selected if already answered
-  if (userAnswers[currentIndex] !== null) {
-    grid.querySelectorAll('.choice-item').forEach(btn => btn.classList.add('disabled'));
-  }
-
-  // Nav buttons
   document.getElementById('btn-prev').classList.toggle('hidden', currentIndex === 0);
   const isLast = currentIndex === total - 1;
   document.getElementById('btn-next').classList.toggle('hidden', isLast);
@@ -89,52 +119,30 @@ function selectAnswer(choice) {
   if (userAnswers[currentIndex] !== null) return;
   userAnswers[currentIndex] = choice;
   renderQuestion();
-
-  // Auto advance after short delay
   setTimeout(() => {
-    if (currentIndex < currentQuestions.length - 1) {
-      currentIndex++;
-      renderQuestion();
-    }
+    if (currentIndex < currentQuestions.length - 1) { currentIndex++; renderQuestion(); }
   }, 600);
 }
 
-function nextQuestion() {
-  if (currentIndex < currentQuestions.length - 1) {
-    currentIndex++;
-    renderQuestion();
-  }
-}
-
-function prevQuestion() {
-  if (currentIndex > 0) {
-    currentIndex--;
-    renderQuestion();
-  }
-}
+window.nextQuestion = function() { if (currentIndex < currentQuestions.length - 1) { currentIndex++; renderQuestion(); } };
+window.prevQuestion = function() { if (currentIndex > 0) { currentIndex--; renderQuestion(); } };
 
 // ===== SUBMIT =====
-function submitQuiz() {
+window.submitQuiz = function() {
   clearInterval(timerInterval);
-
   const total = currentQuestions.length;
   let correct = 0;
-  currentQuestions.forEach((q, i) => {
-    if (userAnswers[i] === q.answer) correct++;
-  });
-
+  currentQuestions.forEach((q, i) => { if (userAnswers[i] === q.answer) correct++; });
   const pct = Math.round((correct / total) * 100);
   const timeStr = formatTime(elapsedSeconds);
-
   lastResult = { questions: currentQuestions, answers: userAnswers, correct, total, pct, timeStr };
 
-  // Save to history
-  saveHistory(lastResult);
+  // Lưu cả local và Firebase
+  saveHistoryLocal(lastResult);
+  fbSave(lastResult);
 
-  // Render result
   const emoji = pct >= 90 ? '🎉' : pct >= 70 ? '👍' : pct >= 50 ? '😊' : '💪';
   const title = pct >= 90 ? 'Xuất sắc!' : pct >= 70 ? 'Tốt lắm!' : pct >= 50 ? 'Cố lên nhé!' : 'Hãy luyện thêm!';
-
   document.getElementById('result-emoji').textContent = emoji;
   document.getElementById('result-title').textContent = title;
   document.getElementById('score-main').textContent = `${correct}/${total}`;
@@ -142,15 +150,13 @@ function submitQuiz() {
   document.getElementById('stat-correct').textContent = correct;
   document.getElementById('stat-wrong').textContent = total - correct;
   document.getElementById('stat-time').textContent = timeStr;
-
   showPage('page-result');
-}
+};
 
 // ===== REVIEW =====
-function reviewAnswers() {
+window.reviewAnswers = function() {
   const list = document.getElementById('review-list');
   list.innerHTML = '';
-
   lastResult.questions.forEach((q, i) => {
     const userAns = lastResult.answers[i];
     const isCorrect = userAns === q.answer;
@@ -162,59 +168,33 @@ function reviewAnswers() {
       <div>
         <span class="review-badge ${isCorrect ? 'correct' : 'wrong'}">${isCorrect ? '✅ Đúng' : '❌ Sai'}</span>
         ${!isCorrect ? `<div class="review-answer">Đáp án: <b>${q.answer}</b>${userAns !== null ? ` | Bạn chọn: <b>${userAns}</b>` : ' | Chưa chọn'}</div>` : ''}
-      </div>
-    `;
+      </div>`;
     list.appendChild(item);
   });
-
   showPage('page-review');
-}
+};
 
 // ===== HISTORY =====
 function saveHistoryLocal(result) {
-  const history = getHistoryLocal();
-  history.unshift({
-    date: new Date().toLocaleString('vi-VN'),
-    correct: result.correct,
-    total: result.total,
-    pct: result.pct,
-    time: result.timeStr
-  });
-  localStorage.setItem('paypal_math_history', JSON.stringify(history.slice(0, 50)));
+  const h = getHistoryLocal();
+  h.unshift({ date: new Date().toLocaleString('vi-VN'), correct: result.correct, total: result.total, pct: result.pct, time: result.timeStr });
+  localStorage.setItem('paypal_math_history', JSON.stringify(h.slice(0, 50)));
 }
-
 function getHistoryLocal() {
-  try {
-    return JSON.parse(localStorage.getItem('paypal_math_history') || '[]');
-  } catch { return []; }
-}
-
-async function saveHistory(result) {
-  saveHistoryLocal(result);
-  if (window.saveHistoryFirebase) {
-    await window.saveHistoryFirebase(result);
-  }
+  try { return JSON.parse(localStorage.getItem('paypal_math_history') || '[]'); } catch { return []; }
 }
 
 async function renderHistory() {
   const list = document.getElementById('history-list');
   list.innerHTML = '<div class="history-empty">⏳ Đang tải...</div>';
-
-  let history = null;
-  if (window.getHistoryFirebase) {
-    history = await window.getHistoryFirebase();
-  }
-  // Fallback sang localStorage nếu Firebase lỗi
+  let history = await fbGet();
   if (!history) history = getHistoryLocal();
-
   list.innerHTML = '';
-
   if (history.length === 0) {
     list.innerHTML = '<div class="history-empty">📭 Chưa có lịch sử làm bài</div>';
     return;
   }
-
-  history.forEach((h) => {
+  history.forEach(h => {
     const pctClass = h.pct >= 80 ? 'good' : h.pct >= 50 ? 'ok' : 'bad';
     const item = document.createElement('div');
     item.className = 'history-item';
@@ -224,18 +204,16 @@ async function renderHistory() {
         <div class="history-score">${h.correct}/${h.total} câu đúng</div>
         <div class="history-meta">⏱ ${h.time}</div>
       </div>
-      <div class="history-pct ${pctClass}">${h.pct}%</div>
-    `;
+      <div class="history-pct ${pctClass}">${h.pct}%</div>`;
     list.appendChild(item);
   });
-
   const clearBtn = document.createElement('button');
   clearBtn.className = 'btn-clear-history';
   clearBtn.textContent = '🗑 Xóa lịch sử';
   clearBtn.onclick = async () => {
     if (confirm('Xóa toàn bộ lịch sử?')) {
       localStorage.removeItem('paypal_math_history');
-      if (window.clearHistoryFirebase) await window.clearHistoryFirebase();
+      await fbClear();
       renderHistory();
     }
   };
@@ -243,14 +221,6 @@ async function renderHistory() {
 }
 
 // ===== EXIT MODAL =====
-function confirmExit() {
-  document.getElementById('modal-exit').classList.remove('hidden');
-}
-function closeModal() {
-  document.getElementById('modal-exit').classList.add('hidden');
-}
-function exitQuiz() {
-  clearInterval(timerInterval);
-  closeModal();
-  showPage('page-home');
-}
+window.confirmExit = function() { document.getElementById('modal-exit').classList.remove('hidden'); };
+window.closeModal = function() { document.getElementById('modal-exit').classList.add('hidden'); };
+window.exitQuiz = function() { clearInterval(timerInterval); closeModal(); showPage('page-home'); };
